@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="press-grid">
+  <section class="panel dominant">
+    <div class="panel-head"><h2>迟到修订 · 纸批结算裁决</h2><span>{{'已生成结算单' if revision else '预演'}}</span></div>
+    <div class="route-card">
+      <div class="route chosen">
+        <h3>路线 A · 补差结算单 ADJUST（默认 · 唯一可入账）</h3>
+        <p>旧批金额冻结不改写，修订差额独立成单进入本期核算；减量退库、增量从可排库存扣减，逐行勾稽。</p>
+      </div>
+      <div class="route rejected">
+        <h3>路线 B · 重开旧批 REOPEN（仅对比 · 禁止入账）</h3>
+        <p>重开会改写已发财务的订单金额。下表仅演示若重开会得到的成本与库存，不产生任何入账记录。</p>
+      </div>
+    </div>
+
+    {% if revision %}
+    <div class="audit-tiles">
+      <div><span>基线批（冻结）</span><b>{{revision.base_run_id[:10]}}…</b></div>
+      <div><span>已放行金额</span><b>{{revision.revision_summary.base_total}}</b></div>
+      <div><span>本期差额 CNY</span><b>{{revision.revision_summary.cost_delta}}</b></div>
+      <div><span>调整后总额</span><b>{{revision.revision_summary.adjusted_total}}</b></div>
+      <div><span>张数差 / 张</span><b>{{revision.revision_summary.sheet_delta}}</b></div>
+      <div><span>重开将改写</span><b class="reject">{{revision.revision_summary.reopen_rewrite_if_chosen}}</b></div>
+    </div>
+
+    <div class="panel-head"><h3>差额来源（逐订单调整行）</h3><span>可排库存 = 基线批期末余料</span></div>
+    <div class="scroll"><table><thead><tr>
+      <th>订单</th><th>纸批</th><th>变更字段</th><th>原用纸</th><th>修订用纸</th><th>张数差</th>
+      <th>可排/期初</th><th>扣后库存</th><th>原成本</th><th>差额</th><th>修订后成本</th><th>状态</th>
+    </tr></thead><tbody>
+    {% for a in revision.adjustments %}
+      <tr><td>{{a.id}}</td><td>{{a.lot}}</td><td>{{a.changed|join('、')}}</td>
+        <td class="number">{{a.base_gross}}</td><td class="number">{{a.revised_gross}}</td>
+        <td class="number">{{'%+d'|format(a.sheet_delta)}}</td>
+        <td class="number">{{a.opening}}</td><td class="number">{{a.closing}}</td>
+        <td class="number">{{a.base_cost}}</td><td class="number">{{'%+.2f'|format(a.cost_delta|float)}}</td>
+        <td class="number">{{a.revised_cost}}</td><td><span class="ok">{{a.code}}</span></td></tr>
+    {% else %}<tr><td colspan="12">暂无采纳的修订调整</td></tr>{% endfor %}
+    </tbody></table></div>
+
+    <div class="panel-head"><h3>纸批库存与成本勾稽</h3></div>
+    <div class="scroll"><table><thead><tr>
+      <th>纸批</th><th>基线期末（可排）</th><th>本期张数差</th><th>修订后期末</th><th>基线成本</th><th>本期成本差额</th><th>重量差 kg</th>
+    </tr></thead><tbody>
+    {% for l in revision.lot_adjustments %}
+      <tr><td>{{l.id}}</td><td class="number">{{l.available}}</td>
+        <td class="number">{{'%+d'|format(l.sheet_delta)}}</td><td class="number">{{l.revised_closing}}</td>
+        <td class="number">{{l.base_cost}}</td><td class="number">{{l.cost_delta}}</td>
+        <td class="number">{{l.weight_delta_kg}}</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+
+    <div class="panel-head"><h3>路线 B · 重开视角对比（不入账）</h3><span>REOPEN_VIEW_ONLY</span></div>
+    <div class="scroll"><table><thead><tr>
+      <th>纸批</th><th>重开期初</th><th>重开期末</th><th>重开成本</th><th>已放行成本</th><th>若重开将改写金额</th>
+    </tr></thead><tbody>
+    {% for c in revision.reopen_comparison %}
+      <tr><td>{{c.lot}}</td><td class="number">{{c.opening}}</td><td class="number">{{c.closing}}</td>
+        <td class="number">{{c.reopen_cost}}</td><td class="number">{{c.base_cost}}</td>
+        <td class="number reject">{{c.cost_vs_released}}</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+
+    <div class="checks">
+      <span>财务冻结 {{'相符' if revision.reconcile.finance_frozen_ok else '异常'}}</span>
+      <span>差额勾稽 {{'相符' if revision.reconcile.cost_balanced else '异常'}}</span>
+      <span>库存勾稽 {{'相符' if revision.reconcile.stock_balanced else '异常'}}</span>
+      <span>库存非负 {{'相符' if revision.reconcile.stock_non_negative else '异常'}}</span>
+      <span>重开隔离 {{'相符' if revision.reconcile.route_guarded else '异常'}}</span>
+    </div>
+    <div class="actions">
+      <a class="solid link" href="/api/revision_archive/{{revision.run_id}}/export.csv">归档修订证据（同口径CSV）</a>
+    </div>
+    {% else %}
+    <p class="empty-hint">选择一个修订样例并指定已放行基线批后，可预演补差结算。重开路线仅作对比，不入账。</p>
+    {% endif %}
+  </section>
+
+  <section class="panel side">
+    <div class="panel-head"><h2>提交修订结算</h2></div>
+    <form id="revision-input" class="revision-form">
+      <label>基线批次（须已放行且对账平衡）
+        <select name="base_run_id">
+          {% for h in history %}<option value="{{h.id}}">{{h.id}} · {{h.decision}} · REV{{h.version}}</option>{% endfor %}
+        </select>
+      </label>
+      <label>修订工单样例
+        <select name="sample">
+          <option>revision_qty.csv</option><option>revision_due.csv</option><option>revision_mix.csv</option>
+        </select>
+      </label>
+      <button type="submit" class="solid">预演补差结算</button>
+      <button type="button" id="revision-save" class="solid">生成并落库结算单</button>
+    </form>
+    <div class="panel-head"><h2>结算单历史</h2></div>
+    <div class="scroll"><table><thead><tr><th>批次</th><th>版本</th><th>放行</th></tr></thead><tbody>
+      {% for h in history %}<tr><td>{{h.id[:12]}}</td><td>{{h.version}}</td><td>{{h.decision}}</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+  {% include "review_queue.html" %}
+</div>
+{% endblock %}

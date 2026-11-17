@@ -1,0 +1,4 @@
+id,order_id,version,lot,paper_w,paper_h,piece_w,piece_h,bleed,gap,dimension_unit,grain,quantity,gsm,price_kg,fixed_loss,loss_pct,stock,due,note
+00001,PO0001,2,PAPER1,1000,700,300,200,0,0,mm,any,500,80,6.80,20,2,2000,2026-11-17,减量修订
+00002,PO0002,2,PAPER1,1000,700,300,200,0,0,mm,any,300,80,6.80,20,2,2000,2026-11-18,减量修订
+00003,PO0003,2,PAPER1,1000,700,300,200,0,0,mm,any,800,80,6.80,20,2,2000,2026-11-19,减量修订

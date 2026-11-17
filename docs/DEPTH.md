@@ -13,6 +13,7 @@
 | M5 余料结转 | 查看并复算余料结转 | `/api/m5_calculate` | `app/modules/m5_calculate/rules.py` | `tests/test_calculate.py` |
 | M6 成本对账 | 查看并复算成本对账 | `/api/m6_reconcile` | `app/modules/m6_reconcile/compare.py` | `tests/test_reconcile.py` |
 | M7 批次归档 | 查看并复算批次归档 | `/api/m7_archive` | `app/modules/m7_archive/export_out.py` | `tests/test_archive.py` |
+| M8 修订结算 | 迟到修订工单补差与重开对比 | `/api/m8_revision` | `app/modules/m8_revision/rules.py` | `tests/test_revision.py` |
 
 ## 陷阱登记
 
@@ -31,6 +32,12 @@
 | TRAP-26 | 旧版本复核 | 覆盖新结论 | 事务条件更新 | `app/store.py` | `tests/test_archive.py::test_stale_review` |
 | TRAP-15 | cm与mm | 尺寸相差10倍 | 尺寸统一mm | `app/modules/m3_versions/rules.py` | `tests/test_versions.py::test_real_cm_conversion` |
 | TRAP-24 | 分币尾差 | 合计不相等 | 按纸批最大余额 | `app/modules/m5_calculate/rules.py` | `tests/test_calculate.py::test_largest_remainder` |
+| TRAP-30 | 重开放行批 | 改写已发财务金额 | 冻结旧批+补差结算单，重开仅对比 | `app/modules/m8_revision/rules.py` | `tests/test_revision.py::test_baseline_amount_is_frozen` |
+| TRAP-31 | 负向差额分摊 | 负权重取整方向错、合计不等 | 带符号最大余数 `signed_apportion` | `app/modules/m8_revision/rules.py` | `tests/test_revision.py::test_signed_apportion_negative_conserves_total` |
+| TRAP-32 | 两路线单单成本 | 误把重开值当入账值 | 批级守恒但单单分币落点不同，重开标记 VIEW_ONLY | `app/modules/m8_revision/rules.py` | `tests/test_revision.py::test_two_routes_diverge_on_per_order_cost_but_conserve_lot_total` |
+| TRAP-33 | 同修订重跑 | 重复入账差额 | 幂等ID命中既有结算单直接返回 | `app/store.py` 与 `app/manifest.py` | `tests/test_revision.py::test_same_revision_rerun_is_idempotent` |
+| TRAP-34 | 结算落库失败 | 丢记录/污染latest | 备份+事务回滚恢复旧版 | `app/store.py` | `tests/test_revision.py::test_failed_save_rolls_back_and_keeps_previous` |
+| TRAP-35 | 借修订改材质 | 破坏原批成本口径 | MATERIAL 整单隔离走新单 | `app/modules/m8_revision/rules.py` | `tests/test_revision.py::test_material_change_is_quarantined_not_settled` |
 
 ## 对账规则
 

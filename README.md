@@ -19,6 +19,11 @@ docker compose up --build -d
 - 余料结转：`/m5_calculate`、`/api/m5_calculate`
 - 成本对账：`/m6_reconcile`、`/api/m6_reconcile`
 - 批次归档：`/m7_archive`、`/api/m7_archive`
+- 修订结算：`/m8_revision`、`/api/m8_revision`（预演）、`/api/revision_runs`（落库）、`/api/revision_archive/<id>/export.csv`
+
+## 迟到修订工单的裁决
+
+已放行纸批的金额与库存快照冻结，**不重开旧批**。改印量/改交期工单走独立补差结算单（ADJUST，唯一可入账）；"重开旧批"（REOPEN）只在同页生成对比视图，标记 `REOPEN_VIEW_ONLY`，绝不改写已发财务金额。减量退库、增量从基线批期末可排库存扣减，差额按带符号最大余数法分摊，逐行勾稽。同修订重跑命中幂等 ID 不新增差额；落库失败自动备份回滚到旧版。规则与口径见 `docs/DATA-DICTIONARY.md` 的"迟到修订工单结算"。修订样例：`sample_data/revision_qty.csv`、`revision_due.csv`、`revision_mix.csv`。
 
 ## 核心规则
 

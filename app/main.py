@@ -5,7 +5,7 @@ from app.errors import DomainError
 from app.workflow import run,load
 from app import store
 from app.web import payload
-from app.modules.m7_archive.export_out import bundle
+from app.modules.m7_archive.export_out import bundle,revision_bundle
 
 def create_app():
     app=Flask(__name__);app.config['MAX_CONTENT_LENGTH']=2_000_000
@@ -35,6 +35,12 @@ def create_app():
         state=store.get(run_id)
         if not state.get('reconcile',{}).get('balanced'):raise DomainError('UNBALANCED','对账未平')
         return Response(bundle(state),mimetype='text/csv; charset=utf-8',headers={'Content-Disposition':'attachment; filename=evidence.csv'})
+    @app.get('/api/revision_archive/<run_id>/export.csv')
+    def revision_download(run_id):
+        state=store.get(run_id)
+        if state.get('manifest',{}).get('kind')!='REVISION_SETTLEMENT':raise DomainError('NOT_FOUND','该批次不是修订结算单',404)
+        if not state.get('reconcile',{}).get('balanced'):raise DomainError('UNBALANCED','修订对账未平')
+        return Response(revision_bundle(state),mimetype='text/csv; charset=utf-8',headers={'Content-Disposition':'attachment; filename=revision_evidence.csv'})
     with app.app_context():
         if not store.history():
             state=run(load('dirty.csv'),{});store.save(state['run_id'],state)
